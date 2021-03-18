@@ -7,7 +7,7 @@
 #include <iostream>
 #include <thread>
 
-extern "C" {
+extern "C" {//dom
 	_declspec(dllexport) int NvOptimusEnablement = 1;
 	_declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }

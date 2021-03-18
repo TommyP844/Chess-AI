@@ -105,6 +105,7 @@ void ChessBoard::reset()
 	mBoard.General[BLACK] = 0ull;
 	
 	mBoard.Attacks = 0ull;
+	mPromotionSelection = false;
 	updateWhiteAndBlackBoards();
 
 }
@@ -191,17 +192,6 @@ void ChessBoard::applyMove(const Move& move)
 	if (move.getCapturedPiece() <= 6 && move.getCapturedPiece() >= 0)
 		mBoard.PieceBoards[color ^ 1][move.getCapturedPiece()] &= ~(1ull << move.getToTile());
 
-	//if (move.getEnPassant() == 1)
-	//{
-	//	if (move.getMovedColor() == WHITE)
-	//	{
-	//		mBoard.PieceBoards[BLACK][PAWN] &= ~((1ull << move.getToTile()) << 8);
-	//	}
-	//	else
-	//	{
-	//		mBoard.PieceBoards[WHITE][PAWN] &= ~((1ull << move.getToTile()) >> 8);
-	//	}
-	//}
 	mTurn ^= 1;
 	updateWhiteAndBlackBoards();
 }
@@ -380,11 +370,6 @@ bool ChessBoard::positionUnderAttack(int index, Color color, u64 blockerMask)
 	return attacks & (1ull << index);
 }
 
-int ChessBoard::getGhostAttacks(Color color, int index, u64 blockerMask)
-{
-	return 0;
-}
-
 u64 ChessBoard::isKingInCheck(Color color)
 {
 	u64 attackers = 0ull;
@@ -458,19 +443,6 @@ u64 ChessBoard::get_pawn_attacks(int index)
 	return attacks;
 }
 
-bool ChessBoard::isPiecePinned(int piece_index, int board_index, Color color)
-{
-	int king_sq = get_ls1b_index(mBoard.PieceBoards[color][KING]);
-	u64 rooks = get_rook_attacks(king_sq, mBoard.All);
-	u64 bishops = get_bishop_attacks(king_sq, mBoard.All);
-
-	if (!((rooks | bishops) & (1ull << piece_index)))
-		return false;
-
-
-	return false;
-}
-
 int ChessBoard::get_ls1b_index(u64 bitboard)
 {
 	// make sure bitboard is not empty
@@ -482,44 +454,6 @@ int ChessBoard::get_ls1b_index(u64 bitboard)
 	else
 		// return illegal index
 		return -1;
-}
-
-u64 ChessBoard::getAttackRay(int king_sq, int attack_sq, int board_index, Color king_col)
-{
-	u64 ray = 0ull;
-
-	u64 king_attack = 0ull;
-	u64 enemy_attack = 0ull;
-
-	if (board_index == BISHOP)
-	{
-		king_attack = bishop_masks[king_sq];
-		enemy_attack = bishop_masks[attack_sq];
-		return king_attack & enemy_attack;
-	}
-	else if (board_index == ROOK)
-	{
-		king_attack = rook_masks[king_sq];
-		enemy_attack = rook_masks[attack_sq];
-		return king_attack & enemy_attack;
-	}
-	else if (board_index == QUEEN)
-	{
-		u64 loc = 1ull << king_sq;
-		if (loc & rook_masks[board_index]) // rook attack
-		{
-			king_attack = rook_masks[king_sq];
-			enemy_attack = rook_masks[attack_sq];
-			return king_attack & enemy_attack;
-		}
-		else // bishop attack
-		{
-			king_attack = bishop_masks[king_sq];
-			enemy_attack = bishop_masks[attack_sq];
-			return king_attack & enemy_attack;
-		}
-	}
-	return 0ull;
 }
 
  

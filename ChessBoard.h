@@ -55,6 +55,7 @@ private:
 
 	Color mTurn;
 	Board mBoard; // array of 64 Pieces
+    bool mPromotionSelection;
 
     void updateWhiteAndBlackBoards();
 
@@ -65,20 +66,13 @@ private:
 
     bool positionUnderAttack(int index, Color color, u64 blockerMask);
 
-
-    // gets potential number of attacks on a given square
-    int getGhostAttacks(Color color, int index, u64 blockerMask);
-
     u64 get_rook_attacks(int index, u64 mask);
 	u64 get_bishop_attacks(int index, u64 mask);
     u64 get_pawn_attacks(int index);
 
     u64 set_bit(int square) { return 1ull << square; }
 
-    bool isPiecePinned(int piece_index, int board_index, Color color);
     int get_ls1b_index(u64 bitboard);
-
-    u64 getAttackRay(int king_sq, int attack_sq, int board_index, Color king_col);
 
 
 	// https://github.com/maksimKorzh/chess_programming/blob/master/src/magics/magics.c

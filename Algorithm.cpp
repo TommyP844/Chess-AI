@@ -191,7 +191,7 @@ std::vector<Move> Algorithm::getAllValidMoves(Color color)
             board &= ~(1ull << index);
 
             //u64 attacks = mChessBoard->getLegalMoves(color, i, index);
-            u64 attacks = mChessBoard->getSuedoLegalMoves(i, index, mChessBoard->mBoard.All);
+            u64 attacks = mChessBoard->getLegalMoves(color, i, index);
             while (attacks)
             {
                 int to = mChessBoard->get_ls1b_index(attacks);

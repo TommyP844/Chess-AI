@@ -1,0 +1,4 @@
+D:/Source/TommyP844/Chess-AI/include/glm/out/build/x64-Debug (default)/CMakeFiles/edit_cache.dir
+D:/Source/TommyP844/Chess-AI/include/glm/out/build/x64-Debug (default)/CMakeFiles/glm_static.dir
+D:/Source/TommyP844/Chess-AI/include/glm/out/build/x64-Debug (default)/CMakeFiles/glm_shared.dir
+D:/Source/TommyP844/Chess-AI/include/glm/out/build/x64-Debug (default)/CMakeFiles/rebuild_cache.dir

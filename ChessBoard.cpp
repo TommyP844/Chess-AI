@@ -1,0 +1,525 @@
+#include "ChessBoard.h"
+
+const u64 notAFile = 0xfefefefefefefefe; // ~0x0101010101010101
+const u64 notHFile = 0x7f7f7f7f7f7f7f7f; // ~0x8080808080808080
+
+u64 eastOne(u64 b) { return (b << 1) & notAFile; }
+u64 noEaOne(u64 b) { return (b << 9) & notAFile; }
+u64 soEaOne(u64 b) { return (b >> 7) & notAFile; }
+u64 westOne(u64 b) { return (b >> 1) & notHFile; }
+u64 soWeOne(u64 b) { return (b >> 9) & notHFile; }
+u64 noWeOne(u64 b) { return (b << 7) & notHFile; }
+
+ChessBoard::ChessBoard()
+	:
+	pawn_attacks(),
+	pawn_moves(),
+	bishop_attacks(),
+	rook_attacks(),
+	mTurn()
+{
+	
+}
+
+ChessBoard::~ChessBoard()
+{
+}
+
+void ChessBoard::init()
+{
+
+	std::ifstream file("Rook_Slider_Attacks.bin", std::ios::binary | std::ios::in);
+
+	for (int i = 0; i < 64; i++)
+	{
+		for (int j = 0; j < 4096; j++)
+		{
+			file >> rook_attacks[i][j];
+		}
+	}
+
+	file.close();
+
+	file.open("Bishop_Slider_attacks.bin", std::ios::binary | std::ios::in);
+
+	for (int i = 0; i < 64; i++)
+	{
+		for (int j = 0; j < 512; j++)
+		{
+			file >> bishop_attacks[i][j];
+		}
+	}
+
+	file.close();
+
+	file.open("Knight.bin", std::ios::binary | std::ios::in);
+
+	for (int i = 0; i < 64; i++)
+	{
+		file >> knight_attacks[i];
+	}
+
+	file.close();
+
+	file.open("Pawn.bin", std::ios::binary | std::ios::in);
+
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 64; j++)
+		{
+			file >> pawn_attacks[i][j];
+		}
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		for (int j = 0; j < 64; j++)
+		{
+			file >> pawn_moves[i][j];
+		}
+	}
+
+	file.close();
+
+	reset();
+}
+
+void ChessBoard::reset()
+{
+	mTurn = WHITE;
+
+	mBoard.PieceBoards[WHITE][PAWN] = set_bit(a2) | set_bit(b2) | set_bit(c2) | set_bit(d2) | set_bit(e2) | set_bit(f2) | set_bit(g2) | set_bit(h2);
+	mBoard.PieceBoards[WHITE][ROOK] = set_bit(a1) | set_bit(h1);
+	mBoard.PieceBoards[WHITE][KNIGHT] = set_bit(b1) | set_bit(g1);
+	mBoard.PieceBoards[WHITE][BISHOP] = set_bit(c1) | set_bit(f1);
+	mBoard.PieceBoards[WHITE][QUEEN] = set_bit(d1);
+	mBoard.PieceBoards[WHITE][KING] = set_bit(e1);
+
+	mBoard.PieceBoards[BLACK][PAWN] = set_bit(a7) | set_bit(b7) | set_bit(c7) | set_bit(d7) | set_bit(e7) | set_bit(f7) | set_bit(g7) | set_bit(h7);
+	mBoard.PieceBoards[BLACK][ROOK] = set_bit(a8) | set_bit(h8);
+	mBoard.PieceBoards[BLACK][KNIGHT] = set_bit(b8) | set_bit(g8);
+	mBoard.PieceBoards[BLACK][BISHOP] = set_bit(c8) | set_bit(f8);
+	mBoard.PieceBoards[BLACK][QUEEN] = set_bit(d8);
+	mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
+
+	mBoard.General[BLACK] = 0ull;
+	
+	mBoard.Attacks = 0ull;
+	updateWhiteAndBlackBoards();
+
+}
+
+Piece ChessBoard::getPieceAtPosition(int index)
+{
+	Piece p;
+	
+	p.color = -1;
+	p.piece = -1;
+
+	u64 mask = 1ull << index;
+	for (int i = 0; i < 64; i++)
+	{
+		for (int j = 0; j < NUM_BOARDS; j++)
+		{
+			if (mBoard.PieceBoards[WHITE][j] & mask)
+			{
+				p.color = WHITE;
+				p.piece = j;
+				return p;
+			}
+			if (mBoard.PieceBoards[BLACK][j] & mask)
+			{
+				p.color = BLACK;
+				p.piece = j;
+				return p;
+			}
+		}
+	}
+	return p;
+}
+
+bool ChessBoard::placePiece(int index, Piece p)
+{
+	bool success = false;
+	u64 mask = 1ull << index;
+	if (mask & mBoard.Attacks)
+	{
+	
+		mBoard.PieceBoards[p.color][p.piece] |= mask;
+		
+		updateWhiteAndBlackBoards();
+		
+		success = true;
+	}
+	mBoard.Attacks = 0ull;
+	return success;
+}
+
+void ChessBoard::setPiece(int index, Piece p)
+{
+	mBoard.PieceBoards[p.color][p.piece] |= 1ull << index;
+	
+	updateWhiteAndBlackBoards();
+}
+
+Move ChessBoard::generateMove(int from, int to, Piece piece)
+{
+	Move m;
+	m.setFromTile(from);
+	m.setToTile(to);
+	m.setMovedPiece(piece.piece);
+	u64 mask = 1ull << to;
+	int captured = -1; 
+	for (int i = 0; i < NUM_BOARDS; i++)
+		if (mBoard.PieceBoards[piece.color ^ 1][i] & mask)
+			captured = i;
+	
+	m.setCapturedPiece(captured);
+	m.setMovedColor(piece.color);
+
+
+	return m;
+}
+
+void ChessBoard::applyMove(const Move& move)
+{
+	int color = move.getMovedColor();
+	int moved = move.getMovedPiece();
+	
+	mBoard.PieceBoards[color][moved] &= ~(1ull << move.getFromTile());
+	mBoard.PieceBoards[color][moved] |= (1ull << move.getToTile());
+	if (move.getCapturedPiece() <= 6 && move.getCapturedPiece() >= 0)
+		mBoard.PieceBoards[color ^ 1][move.getCapturedPiece()] &= ~(1ull << move.getToTile());
+
+	//if (move.getEnPassant() == 1)
+	//{
+	//	if (move.getMovedColor() == WHITE)
+	//	{
+	//		mBoard.PieceBoards[BLACK][PAWN] &= ~((1ull << move.getToTile()) << 8);
+	//	}
+	//	else
+	//	{
+	//		mBoard.PieceBoards[WHITE][PAWN] &= ~((1ull << move.getToTile()) >> 8);
+	//	}
+	//}
+	mTurn ^= 1;
+	updateWhiteAndBlackBoards();
+}
+
+void ChessBoard::undoMove(const Move& move)
+{
+	int color = move.getMovedColor();
+	int moved = move.getMovedPiece();
+	int captured = move.getCapturedPiece();
+	int from = move.getFromTile();
+	int to = move.getToTile();
+
+	mBoard.PieceBoards[color][moved] &= ~(1ull << to);
+	mBoard.PieceBoards[color][moved] |= (1ull << from);
+
+	if (captured <= 6)
+	{
+		int oppasite = (color ^ 1);
+		mBoard.PieceBoards[oppasite][captured] |= (1ull << to);
+	}
+
+	mTurn ^= 1;
+
+	updateWhiteAndBlackBoards();
+}
+
+void ChessBoard::clearPiece(int index, Piece p)
+{
+	mBoard.PieceBoards[p.color][p.piece] &= ~(1ull << index);
+	updateWhiteAndBlackBoards();
+}
+
+bool ChessBoard::update(int index)
+{
+	mBoard.Attacks = 0ull;
+
+	if (index < 0 || index > 63)
+		return false;
+
+	Piece piece = getPieceAtPosition(index);
+
+	if (piece.color != mTurn || piece.piece == -1)
+		return false;
+
+	// check that we have selected the right color
+	if (!(1ull << index & mBoard.PieceBoards[piece.color][piece.piece]))
+		return false;
+
+	u64 attacks = getLegalMoves(mTurn, piece.piece, index);
+
+	mBoard.Attacks = attacks;
+
+	return true;
+}
+
+void ChessBoard::updateWhiteAndBlackBoards()
+{
+	mBoard.General[WHITE] = 0ull;
+	mBoard.General[BLACK] = 0ull;
+
+	for (int i = 0; i < NUM_BOARDS; i++)
+	{
+		mBoard.General[WHITE] |= mBoard.PieceBoards[WHITE][i];
+		mBoard.General[BLACK] |= mBoard.PieceBoards[BLACK][i];
+	}
+
+	mBoard.All = mBoard.General[BLACK] | mBoard.General[WHITE];
+
+}
+
+int ChessBoard::numBitsSet(u64 word)
+{
+	int bits = 0;
+
+	while (word)
+	{
+		bits++;
+		word &= word - 1;
+	}
+
+	return bits;
+}
+
+u64 ChessBoard::getSuedoLegalMoves(int board_index, int piece_index, u64 blockerMask)
+{
+	u64 attacks = 0ull;
+
+	switch (board_index)
+	{
+	case PAWN:
+		attacks |= get_pawn_attacks(piece_index);
+		break;
+	case ROOK:
+		attacks = get_rook_attacks(piece_index, blockerMask);
+		break;
+	case KNIGHT:
+		attacks = knight_attacks[piece_index];
+		break;
+	case BISHOP:
+		attacks = get_bishop_attacks(piece_index, blockerMask);
+		break;
+	case QUEEN:
+		attacks = get_rook_attacks(piece_index, blockerMask);
+		attacks |= get_bishop_attacks(piece_index, blockerMask);
+		break;
+	case KING:
+		attacks = king_attacks[piece_index] & ~king_attacks[get_ls1b_index(mBoard.PieceBoards[mTurn ^ 1][KING])];
+		break;
+	}
+
+	attacks &= ~mBoard.General[mTurn];
+
+	return attacks;
+}
+
+u64 ChessBoard::getLegalMoves(Color color, int board_index, int piece_index)
+{
+	// check that we have selected the right color
+	if (!((1ull << piece_index) & mBoard.PieceBoards[color][board_index]))
+		return false;
+	
+	u64 attacks = getSuedoLegalMoves(board_index, piece_index, mBoard.All);
+
+	u64 copy = attacks;
+
+	while (copy)
+	{
+		int index = get_ls1b_index(copy);
+		u64 flag = ~(1ull << index);
+		copy &= flag;
+		Piece p;
+		p.color = color;
+		p.piece = board_index;
+		Move m = generateMove(piece_index, index, p);
+		applyMove(m);
+		if (isKingInCheck(color))
+			attacks &= flag;
+		undoMove(m);
+	}
+	return attacks;
+}
+
+bool ChessBoard::positionUnderAttack(int index, Color color, u64 blockerMask)
+{
+	u64 attacks = 0ull;
+
+	// NUM_BOARDS - 1 so we dont include king attacks
+	for (int i = 1; i < NUM_BOARDS - 1; i++)
+	{
+		u64 board = mBoard.PieceBoards[color][i];
+
+		while (board)
+		{
+			int index = get_ls1b_index(board);
+			board &= ~(1ull << index);
+
+			attacks |= getSuedoLegalMoves(i, index, blockerMask);
+		}
+	}
+
+	if (color == BLACK)
+	{
+		if (mBoard.PieceBoards[BLACK][PAWN] & soEaOne(1ull << index))
+			attacks |= 1ull << index;
+		if (mBoard.PieceBoards[BLACK][PAWN] & soWeOne(1ull << index))
+			attacks |= 1ull << index;
+	}
+	else
+	{
+		if (mBoard.PieceBoards[WHITE][PAWN] & noEaOne(1ull << index))
+			attacks |= 1ull << index;
+		if (mBoard.PieceBoards[WHITE][PAWN] & noWeOne(1ull << index))
+			attacks |= 1ull << index;
+	}
+
+	return attacks & (1ull << index);
+}
+
+int ChessBoard::getGhostAttacks(Color color, int index, u64 blockerMask)
+{
+	return 0;
+}
+
+u64 ChessBoard::isKingInCheck(Color color)
+{
+	u64 attackers = 0ull;
+
+	u64 king = mBoard.PieceBoards[color][KING];
+
+	if (king == 0ull)
+		return 0ull;
+
+	int king_index = get_ls1b_index(king);
+
+	int opp = color ^ 1;
+
+	u64 rooks = get_rook_attacks(king_index, mBoard.All);
+	attackers |= rooks & (mBoard.PieceBoards[opp][ROOK] | mBoard.PieceBoards[opp][QUEEN]);
+
+	u64 bishop = get_bishop_attacks(king_index, mBoard.General[WHITE] | mBoard.General[BLACK]);
+	attackers |= bishop & (mBoard.PieceBoards[opp][BISHOP] | mBoard.PieceBoards[opp][QUEEN]);
+
+	attackers |= knight_attacks[king_index] & mBoard.PieceBoards[opp][KNIGHT];
+
+	u64 king_pos = 1ull << king_index;
+
+	// add pawns
+	if (color == WHITE)
+		attackers |= (soEaOne(king_pos) | soWeOne(king_pos)) & mBoard.PieceBoards[opp][PAWN];
+	else
+		attackers |= (noEaOne(king_pos) | noWeOne(king_pos)) & mBoard.PieceBoards[opp][PAWN];
+
+	return attackers;
+}
+
+u64 ChessBoard::get_rook_attacks(int square, u64 mask)
+{
+	mask &= rook_masks[square];
+	mask *= rook_magics[square];
+	mask >>= 64 - rook_relevant_bits[square];
+
+	// return rellevant attacks
+	return rook_attacks[square][mask];
+}
+
+u64 ChessBoard::get_bishop_attacks(int square, u64 mask)
+{
+	mask &= bishop_masks[square];
+	mask *= bishop_magics[square];
+	mask >>= 64 - bishop_relevant_bits[square];
+
+	// return rellevant attacks
+	return bishop_attacks[square][mask];
+}
+
+u64 ChessBoard::get_pawn_attacks(int index)
+{
+	u64 enemyMask = mBoard.General[mTurn ^ 1];
+
+	u64 attacks = 0ull;
+
+	u64 pos = 1ull << index;
+	u64 first = 255ull << (mTurn == WHITE ? 48 : 8);
+	u64 move = 1ull << (mTurn == WHITE ? (index - 16) : (index + 16));
+
+	u64 open = ~(mBoard.General[WHITE] | mBoard.General[BLACK]);
+
+	attacks |= pawn_moves[mTurn][index] & open;
+	if (attacks > 0ull
+		&& (pos & first)
+		&& (move & open))
+		attacks |= move;
+	attacks |= pawn_attacks[mTurn][index] & enemyMask;
+	return attacks;
+}
+
+bool ChessBoard::isPiecePinned(int piece_index, int board_index, Color color)
+{
+	int king_sq = get_ls1b_index(mBoard.PieceBoards[color][KING]);
+	u64 rooks = get_rook_attacks(king_sq, mBoard.All);
+	u64 bishops = get_bishop_attacks(king_sq, mBoard.All);
+
+	if (!((rooks | bishops) & (1ull << piece_index)))
+		return false;
+
+
+	return false;
+}
+
+int ChessBoard::get_ls1b_index(u64 bitboard)
+{
+	// make sure bitboard is not empty
+	if (bitboard != 0)
+		// convert trailing zeros before LS1B to ones and count them
+		return numBitsSet((bitboard & (-(long long)bitboard)) - 1);
+
+	// otherwise
+	else
+		// return illegal index
+		return -1;
+}
+
+u64 ChessBoard::getAttackRay(int king_sq, int attack_sq, int board_index, Color king_col)
+{
+	u64 ray = 0ull;
+
+	u64 king_attack = 0ull;
+	u64 enemy_attack = 0ull;
+
+	if (board_index == BISHOP)
+	{
+		king_attack = bishop_masks[king_sq];
+		enemy_attack = bishop_masks[attack_sq];
+		return king_attack & enemy_attack;
+	}
+	else if (board_index == ROOK)
+	{
+		king_attack = rook_masks[king_sq];
+		enemy_attack = rook_masks[attack_sq];
+		return king_attack & enemy_attack;
+	}
+	else if (board_index == QUEEN)
+	{
+		u64 loc = 1ull << king_sq;
+		if (loc & rook_masks[board_index]) // rook attack
+		{
+			king_attack = rook_masks[king_sq];
+			enemy_attack = rook_masks[attack_sq];
+			return king_attack & enemy_attack;
+		}
+		else // bishop attack
+		{
+			king_attack = bishop_masks[king_sq];
+			enemy_attack = bishop_masks[attack_sq];
+			return king_attack & enemy_attack;
+		}
+	}
+	return 0ull;
+}
+
+ 

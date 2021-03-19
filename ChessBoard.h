@@ -42,6 +42,10 @@ public:
 
     Move generateMove(int from, int to, Piece piece);
 
+    Move getLastMove() { return (mPreviousMoves.empty() ? Move() : mPreviousMoves.back()); }
+
+    int getNumMoves() { return mPreviousMoves.size(); }
+
     inline void applyMove(const Move& move);
     inline void undoMove(const Move& move);
 
@@ -56,6 +60,8 @@ private:
 	Color mTurn;
 	Board mBoard; // array of 64 Pieces
     bool mPromotionSelection;
+
+    std::vector<Move> mPreviousMoves;
 
     void updateWhiteAndBlackBoards();
 

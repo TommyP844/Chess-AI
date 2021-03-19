@@ -101,12 +101,13 @@ void ChessBoard::reset()
 	mBoard.PieceBoards[BLACK][BISHOP] = set_bit(c8) | set_bit(f8);
 	mBoard.PieceBoards[BLACK][QUEEN] = set_bit(d8);
 	mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
-
-	mBoard.General[BLACK] = 0ull;
-	
+		
 	mBoard.Attacks = 0ull;
 	mPromotionSelection = false;
 	updateWhiteAndBlackBoards();
+
+	mPreviousMoves.clear();
+	mPreviousMoves.push_back(Move());
 
 }
 
@@ -165,7 +166,7 @@ void ChessBoard::setPiece(int index, Piece p)
 
 Move ChessBoard::generateMove(int from, int to, Piece piece)
 {
-	Move m;
+	Move m; 
 	m.setFromTile(from);
 	m.setToTile(to);
 	m.setMovedPiece(piece.piece);
@@ -179,6 +180,48 @@ Move ChessBoard::generateMove(int from, int to, Piece piece)
 	m.setMovedColor(piece.color);
 
 
+	if (mPreviousMoves.empty())
+	{
+		m.setWhiteKingCastleKingSide(true);
+		m.setWhiteKingCastleQueenSide(true);
+		m.setBlackKingCastleKingSide(true);
+		m.setBlackKingCastleQueenSide(true);
+	}
+	else
+	{
+		Move last = mPreviousMoves.back();
+		m.setWhiteKingCastleKingSide(last.getWhiteKingCastleKingSide());
+		m.setWhiteKingCastleQueenSide(last.getWhiteKingCastleQueenSide());
+		m.setBlackKingCastleKingSide(last.getBlackKingCastleKingSide());
+		m.setBlackKingCastleQueenSide(last.getBlackKingCastleQueenSide());
+	}
+
+
+	if (piece.piece == ROOK)
+	{
+		if (from == 0)
+			m.setBlackKingCastleQueenSide(false);
+		if (from == 7)
+			m.setBlackKingCastleKingSide(false);
+		if (from == 56)
+			m.setWhiteKingCastleQueenSide(false);
+		if (from == 63)
+			m.setWhiteKingCastleKingSide(false);
+	}
+	else if (piece.piece == KING)
+	{
+		if (piece.color == WHITE)
+		{
+			m.setWhiteKingCastleKingSide(false);
+			m.setWhiteKingCastleQueenSide(false);
+		}
+		else
+		{
+			m.setBlackKingCastleKingSide(false);
+			m.setBlackKingCastleQueenSide(false);
+		}
+	}
+
 	return m;
 }
 
@@ -186,13 +229,36 @@ void ChessBoard::applyMove(const Move& move)
 {
 	int color = move.getMovedColor();
 	int moved = move.getMovedPiece();
-	
+	int captured = move.getCapturedPiece();
+	int from = move.getFromTile();
+	int to = move.getToTile();
+		 
 	mBoard.PieceBoards[color][moved] &= ~(1ull << move.getFromTile());
 	mBoard.PieceBoards[color][moved] |= (1ull << move.getToTile());
-	if (move.getCapturedPiece() <= 6 && move.getCapturedPiece() >= 0)
+	if (captured <= 6 && captured >= 0)
+	{
 		mBoard.PieceBoards[color ^ 1][move.getCapturedPiece()] &= ~(1ull << move.getToTile());
+	}
+
+	if (moved == KING)
+	{
+		if (std::abs(from - to) == 2) // we are castling
+		{
+			if (to > from) // king side
+			{
+				mBoard.PieceBoards[color][ROOK] &= ~(1ull << (to + 1));
+				mBoard.PieceBoards[color][ROOK] |= (1ull << (to - 1));
+			}
+			else // queen side
+			{
+				mBoard.PieceBoards[color][ROOK] &= ~(1ull << (to - 2));
+				mBoard.PieceBoards[color][ROOK] |= (1ull << (to + 1));
+			}
+		}
+	}
 
 	mTurn ^= 1;
+	mPreviousMoves.push_back(move);
 	updateWhiteAndBlackBoards();
 }
 
@@ -207,13 +273,30 @@ void ChessBoard::undoMove(const Move& move)
 	mBoard.PieceBoards[color][moved] &= ~(1ull << to);
 	mBoard.PieceBoards[color][moved] |= (1ull << from);
 
-	if (captured <= 6)
+	if (captured >= 0 && captured <= 6)
 	{
-		int oppasite = (color ^ 1);
-		mBoard.PieceBoards[oppasite][captured] |= (1ull << to);
+		mBoard.PieceBoards[color ^ 1][captured] |= (1ull << to);
+	}
+
+	if (moved == KING)
+	{
+		if (std::abs(from - to) == 2) // we are castling
+		{
+			if (to > from) // king side
+			{
+				mBoard.PieceBoards[color][ROOK] &= ~(1ull << (to - 1));
+				mBoard.PieceBoards[color][ROOK] |= (1ull << (to + 1));
+			}
+			else // queen side
+			{
+				mBoard.PieceBoards[color][ROOK] &= ~(1ull << (to + 1));
+				mBoard.PieceBoards[color][ROOK] |= (1ull << (to - 2));
+			}
+		}
 	}
 
 	mTurn ^= 1;
+	mPreviousMoves.pop_back();
 
 	updateWhiteAndBlackBoards();
 }
@@ -299,6 +382,48 @@ u64 ChessBoard::getSuedoLegalMoves(int board_index, int piece_index, u64 blocker
 		break;
 	case KING:
 		attacks = king_attacks[piece_index] & ~king_attacks[get_ls1b_index(mBoard.PieceBoards[mTurn ^ 1][KING])];
+		if (!mPreviousMoves.empty())
+		{
+			Move last = mPreviousMoves.back();
+			u64 pos = 1ull << piece_index;
+			u64 left = (pos >> 1) | (pos >> 2) | (pos >> 3);
+			u64 right = (pos << 1) | (pos << 2);
+
+			if ((left & ~mBoard.All) == left) // castle left
+			{
+				if (mTurn == WHITE)
+				{
+					if (last.getWhiteKingCastleQueenSide())
+					{
+						attacks |= pos >> 2;
+					}
+				}
+				else
+				{
+					if (last.getBlackKingCastleQueenSide())
+					{
+						attacks |= pos >> 2;
+					}
+				}
+			}
+			if ((right & ~mBoard.All) == right) // castle right
+			{
+				if (mTurn == WHITE)
+				{
+					if (last.getWhiteKingCastleKingSide())
+					{
+						attacks |= pos << 2;
+					}
+				}
+				else
+				{
+					if (last.getBlackKingCastleKingSide())
+					{
+						attacks |= pos << 2;
+					}
+				}
+			}
+		}
 		break;
 	}
 

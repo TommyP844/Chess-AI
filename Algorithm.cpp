@@ -206,7 +206,7 @@ std::vector<Move> Algorithm::getAllValidMoves(Color color)
         }
     }
 
-    //std::sort(arr.begin(), arr.end(), moveSort);
+    std::sort(arr.begin(), arr.end(), moveSort);
 
     return arr;
 }
@@ -256,7 +256,7 @@ bool moveSort(Move a, Move b)
     int ma = moveScore(a);
     int mb = moveScore(b);
 
-    return (ma > mb);
+    return (ma < mb);
 }
 
 int moveScore(const Move& m)

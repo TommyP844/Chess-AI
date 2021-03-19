@@ -52,6 +52,11 @@ bool ChessGame::run()
 		ImGui::Text("Board Index: %i", index);
 		ImGui::Text("White King Check: %s", (mChessBoard->isKingInCheck(WHITE) > 0ull ? "Yes" : "No"));
 		ImGui::Text("Black King Check: %s", (mChessBoard->isKingInCheck(BLACK) > 0ull ? "Yes" : "No"));
+		ImGui::Text("White Castle King Side: %s", (mChessBoard->getLastMove().getWhiteKingCastleKingSide() ? "Yes" : "No"));
+		ImGui::Text("White Castle Queen Side: %s", (mChessBoard->getLastMove().getWhiteKingCastleQueenSide() ? "Yes" : "No"));
+		ImGui::Text("Black Castle King Side: %s", (mChessBoard->getLastMove().getBlackKingCastleKingSide() ? "Yes" : "No"));
+		ImGui::Text("Black Castle Queen Side: %s", (mChessBoard->getLastMove().getBlackKingCastleQueenSide() ? "Yes" : "No"));
+		ImGui::Text("Moves made: %i", mChessBoard->getNumMoves());
 
 		ImGui::Checkbox("PVP", &pvp);
 		ImGui::End();

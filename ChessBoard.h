@@ -67,7 +67,10 @@ private:
 
     int numBitsSet(u64 word);
 
+    void print(u64 board);
+
     u64 getSuedoLegalMoves(int board_index, int piece_index, u64 blockerMask);
+    void getSuedoLegalMoves(int board, int sq, Color color, u64 mask, std::vector<Move>& moves);
     u64 getLegalMoves(Color color, int board_index, int piece_index);
 
     bool positionUnderAttack(int index, Color color, u64 blockerMask);
@@ -75,6 +78,9 @@ private:
     u64 get_rook_attacks(int index, u64 mask);
 	u64 get_bishop_attacks(int index, u64 mask);
     u64 get_pawn_attacks(int index);
+
+    void get_rook_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves);
+    void get_bishop_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves);
 
     u64 set_bit(int square) { return 1ull << square; }
 
@@ -226,6 +232,8 @@ private:
 	12, 11, 11, 11, 11, 11, 11, 12
 	};
 	u64 rook_attacks[64][4096];
+    int rook_attack_positions[64][4096][14];
+    int rook_num_attack_positions[64][4096];
 
     u64 bishop_masks[64] = {
         18049651735527936   ,
@@ -370,6 +378,8 @@ private:
 		6, 5, 5, 5, 5, 5, 5, 6
 	};
 	u64 bishop_attacks[64][512];
+    int bishop_attack_positions[64][512][14];
+    int bishop_num_attack_positions[64][512];
 
     u64 knight_attacks[64] = {
         132096            ,
@@ -437,6 +447,8 @@ private:
         4679521487814656        ,
         9077567998918656        ,
     };
+    int knight_attack_positions[64][256][8];
+    int knight_num_attacks[64][256];
 
     u64 king_attacks[64] = {
         770                 ,

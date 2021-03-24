@@ -2,8 +2,6 @@
 
 
 int clamp(int a, int low, int high) { if (a > high) return high; if (a < low) return low; return a; }
-bool moveSort(Move a, Move b);
-int moveScore(const Move& m);
 
 
 Algorithm::Algorithm()
@@ -181,7 +179,7 @@ int Algorithm::NegaMax(int depth, int alpha, int beta, Color color, u64 zobrist)
 std::vector<Move> Algorithm::getAllValidMoves(Color color)
 {
     std::vector<Move> arr;
-    arr.reserve(50);
+    arr.reserve(200);
     for (int i = 0; i < NUM_BOARDS; i++)
     {
         u64 board = mChessBoard->mBoard.PieceBoards[color][i];
@@ -190,23 +188,9 @@ std::vector<Move> Algorithm::getAllValidMoves(Color color)
             int index = mChessBoard->get_ls1b_index(board);
             board &= ~(1ull << index);
 
-            //u64 attacks = mChessBoard->getLegalMoves(color, i, index);
-            u64 attacks = mChessBoard->getSuedoLegalMoves(i, index, mChessBoard->mBoard.All);
-            while (attacks)
-            {
-                int to = mChessBoard->get_ls1b_index(attacks);
-                attacks &= ~(1ull << to);
-                Piece p;
-                p.color = color;
-                p.piece = i;
-                // insertion below is a bit ugly bust implemented this way
-                // for performance reasons
-                arr.emplace_back(mChessBoard->generateMove(index, to, p));
-            }
+            mChessBoard->getSuedoLegalMoves(i, index, color, mChessBoard->mBoard.All, arr);
         }
     }
-
-    std::sort(arr.begin(), arr.end(), moveSort);
 
     return arr;
 }
@@ -249,24 +233,3 @@ u64 Algorithm::random()
     return (begin = x);
 }
 
-
-//          return true if a < b
-bool moveSort(Move a, Move b)
-{
-    int ma = moveScore(a);
-    int mb = moveScore(b);
-
-    return (ma < mb);
-}
-
-int moveScore(const Move& m)
-{
-    int score = 0;
-    int captured = m.getCapturedPiece();
-    if (captured >= 0 && captured <= 6)
-    {
-        score += captured;
-    }
-
-    return score;
-}

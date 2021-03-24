@@ -34,22 +34,45 @@ void ChessBoard::init()
 	{
 		for (int j = 0; j < 4096; j++)
 		{
-			file >> rook_attacks[i][j];
+			u64 board;
+			file >> board;
+			rook_attacks[i][j] = board;
+
+			int index = 0;
+			int counter = 0;
+			while (board > 0ull)
+			{
+				index = get_ls1b_index(board);
+				board &= ~(1ull << index);
+				rook_attack_positions[i][j][counter] = index;
+				counter++;
+			}
+			rook_num_attack_positions[i][j] = counter;
 		}
 	}
 
 	file.close();
 
 	file.open("Bishop_Slider_attacks.bin", std::ios::binary | std::ios::in);
-
 	for (int i = 0; i < 64; i++)
 	{
 		for (int j = 0; j < 512; j++)
 		{
-			file >> bishop_attacks[i][j];
+			u64 board;
+			file >> board;
+			bishop_attacks[i][j] = board;
+
+			int counter = 0;
+			while (board > 0ull)
+			{
+				int index = get_ls1b_index(board);
+				board &= ~(1ull << index);
+				bishop_attack_positions[i][j][counter] = index;
+				counter++;
+			}
+			bishop_num_attack_positions[i][j] = counter;
 		}
 	}
-
 	file.close();
 
 	file.open("Knight.bin", std::ios::binary | std::ios::in);
@@ -88,19 +111,19 @@ void ChessBoard::reset()
 {
 	mTurn = WHITE;
 
-	mBoard.PieceBoards[WHITE][PAWN] = set_bit(a2) | set_bit(b2) | set_bit(c2) | set_bit(d2) | set_bit(e2) | set_bit(f2) | set_bit(g2) | set_bit(h2);
+	//mBoard.PieceBoards[WHITE][PAWN] = set_bit(a2) | set_bit(b2) | set_bit(c2) | set_bit(d2) | set_bit(e2) | set_bit(f2) | set_bit(g2) | set_bit(h2);
 	mBoard.PieceBoards[WHITE][ROOK] = set_bit(a1) | set_bit(h1);
-	mBoard.PieceBoards[WHITE][KNIGHT] = set_bit(b1) | set_bit(g1);
+	//mBoard.PieceBoards[WHITE][KNIGHT] = set_bit(b1) | set_bit(g1);
 	mBoard.PieceBoards[WHITE][BISHOP] = set_bit(c1) | set_bit(f1);
 	mBoard.PieceBoards[WHITE][QUEEN] = set_bit(d1);
-	mBoard.PieceBoards[WHITE][KING] = set_bit(e1);
+	//mBoard.PieceBoards[WHITE][KING] = set_bit(e1);
 
-	mBoard.PieceBoards[BLACK][PAWN] = set_bit(a7) | set_bit(b7) | set_bit(c7) | set_bit(d7) | set_bit(e7) | set_bit(f7) | set_bit(g7) | set_bit(h7);
+	//mBoard.PieceBoards[BLACK][PAWN] = set_bit(a7) | set_bit(b7) | set_bit(c7) | set_bit(d7) | set_bit(e7) | set_bit(f7) | set_bit(g7) | set_bit(h7);
 	mBoard.PieceBoards[BLACK][ROOK] = set_bit(a8) | set_bit(h8);
-	mBoard.PieceBoards[BLACK][KNIGHT] = set_bit(b8) | set_bit(g8);
+	//mBoard.PieceBoards[BLACK][KNIGHT] = set_bit(b8) | set_bit(g8);
 	mBoard.PieceBoards[BLACK][BISHOP] = set_bit(c8) | set_bit(f8);
 	mBoard.PieceBoards[BLACK][QUEEN] = set_bit(d8);
-	mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
+	//mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
 		
 	mBoard.Attacks = 0ull;
 	mPromotionSelection = false;
@@ -179,7 +202,6 @@ Move ChessBoard::generateMove(int from, int to, Piece piece)
 	m.setCapturedPiece(captured);
 	m.setMovedColor(piece.color);
 
-
 	if (mPreviousMoves.empty())
 	{
 		m.setWhiteKingCastleKingSide(true);
@@ -195,7 +217,6 @@ Move ChessBoard::generateMove(int from, int to, Piece piece)
 		m.setBlackKingCastleKingSide(last.getBlackKingCastleKingSide());
 		m.setBlackKingCastleQueenSide(last.getBlackKingCastleQueenSide());
 	}
-
 
 	if (piece.piece == ROOK)
 	{
@@ -240,7 +261,23 @@ void ChessBoard::applyMove(const Move& move)
 		mBoard.PieceBoards[color ^ 1][move.getCapturedPiece()] &= ~(1ull << move.getToTile());
 	}
 
-	if (moved == KING)
+	
+	if (moved == PAWN)
+	{
+		if (!mPreviousMoves.empty())
+		{
+			const Move& last = mPreviousMoves.back();
+			int dist = std::abs(to - from);
+			if (captured == 7 && (dist == 7 || dist == 9))
+			{
+				if (color == WHITE)
+					mBoard.PieceBoards[color ^ 1][PAWN] &= ~(1ull << (to + 8));
+				else
+					mBoard.PieceBoards[color ^ 1][PAWN] &= ~(1ull << (to - 8));
+			}
+		}
+	}
+	else if (moved == KING)
 	{
 		if (std::abs(from - to) == 2) // we are castling
 		{
@@ -278,7 +315,22 @@ void ChessBoard::undoMove(const Move& move)
 		mBoard.PieceBoards[color ^ 1][captured] |= (1ull << to);
 	}
 
-	if (moved == KING)
+	if (moved == PAWN)
+	{
+		if (!mPreviousMoves.empty())
+		{
+			const Move& last = mPreviousMoves.back();
+			int dist = std::abs(to - from);
+			if (captured == 7 && (dist == 7 || dist == 9))
+			{
+				if (color == WHITE)
+					mBoard.PieceBoards[color ^ 1][PAWN] |= (1ull << (to + 8));
+				else
+					mBoard.PieceBoards[color ^ 1][PAWN] |= (1ull << (to - 8));
+			}
+		}
+	}
+	else if (moved == KING)
 	{
 		if (std::abs(from - to) == 2) // we are castling
 		{
@@ -358,6 +410,19 @@ int ChessBoard::numBitsSet(u64 word)
 	return bits;
 }
 
+void ChessBoard::print(u64 board)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		for (int j = 0; j < 8; j++)
+		{
+			std::cout << ((board >>= 1) & 1 ? "1" : "0");
+		}
+		std::cout << "\n";
+	}
+	std::cout << "\n";
+}
+
 u64 ChessBoard::getSuedoLegalMoves(int board_index, int piece_index, u64 blockerMask)
 {
 	u64 attacks = 0ull;
@@ -430,6 +495,30 @@ u64 ChessBoard::getSuedoLegalMoves(int board_index, int piece_index, u64 blocker
 	attacks &= ~mBoard.General[mTurn];
 
 	return attacks;
+}
+
+void ChessBoard::getSuedoLegalMoves(int board, int sq, Color color, u64 mask, std::vector<Move>& moves)
+{
+	switch (board)
+	{
+	case PAWN:
+		break;
+	case ROOK:
+		get_rook_moves(ROOK, sq, color, mask, moves);
+		break;
+	case KNIGHT:
+		break;
+	case BISHOP:
+		get_bishop_moves(BISHOP, sq, color, mask, moves);
+		break;
+	case QUEEN:
+		get_rook_moves(QUEEN, sq, color, mask, moves);
+		get_bishop_moves(QUEEN, sq, color, mask, moves);
+		break;
+	case KING:
+		break;
+	default: break;
+	}
 }
 
 u64 ChessBoard::getLegalMoves(Color color, int board_index, int piece_index)
@@ -565,13 +654,98 @@ u64 ChessBoard::get_pawn_attacks(int index)
 		&& (move & open))
 		attacks |= move;
 	attacks |= pawn_attacks[mTurn][index] & enemyMask;
+
+
+	// en passant
+	if (!mPreviousMoves.empty())
+	{
+		const Move& last = mPreviousMoves.back();
+		if (last.getMovedPiece() == PAWN)
+		{
+			int from = last.getFromTile();
+			int to = last.getToTile();
+			// we now now last move was a pawn that moved 2 squares in a single turn
+			if (std::abs(from - to) == 16)
+			{
+				if (index + 1 == to || index - 1 == to) // on the right
+				{
+					if (mTurn == WHITE)
+					{
+						attacks |= 1ull << (to - 8);
+					}
+					else
+						attacks |= 1ull << (to + 8);
+				}
+			}
+		}
+	}
+
 	return attacks;
+}
+
+void ChessBoard::get_rook_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves)
+{
+	mask &= rook_masks[index];
+	mask *= rook_magics[index];
+	mask >>= 64 - rook_relevant_bits[index];
+
+
+	for (int i = 0; i < rook_num_attack_positions[index][mask]; i++)
+	{
+		int sq = rook_attack_positions[index][mask][i];
+		u64 b = (1ull << sq);
+		if (mBoard.General[color] & b)
+			continue;
+		Move m;
+		m.setFromTile(index);
+		m.setToTile(sq);
+		m.setMovedPiece(moved);
+		m.setMovedColor(color);
+		int cap = -1;
+		for(int j = 0; j < 6; j++)
+			if (mBoard.PieceBoards[color^1][j] & b)
+			{
+				cap = j;
+				break;
+			}
+		m.setCapturedPiece(cap);
+		moves.push_back(m);
+	}
+}
+
+void ChessBoard::get_bishop_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves)
+{
+	mask &= bishop_masks[index];
+	mask *= bishop_magics[index];
+	mask >>= 64 - bishop_relevant_bits[index];
+
+	for (int i = 0; i < bishop_num_attack_positions[index][mask]; i++)
+	{
+		int sq = bishop_attack_positions[index][mask][i];
+		int b = 1ull << sq;
+		if (mBoard.General[color] & b)
+			continue;
+		Move m;
+		m.setFromTile(index);
+		m.setToTile(sq);
+		m.setMovedPiece(moved);
+		m.setMovedColor(color);
+		int cap = -1;
+		for (int j = 0; j < 6; j++)
+			if (mBoard.PieceBoards[color^1][j] & b)
+			{
+				cap = j;
+				break;
+			}
+		m.setCapturedPiece(cap);
+		moves.emplace_back(m);
+	}
 }
 
 int ChessBoard::get_ls1b_index(u64 bitboard)
 {
 	// make sure bitboard is not empty
-	if (bitboard != 0)
+	if (bitboard != 0ull)
 		// convert trailing zeros before LS1B to ones and count them
 		return numBitsSet((bitboard & (-(long long)bitboard)) - 1);
 

@@ -43,6 +43,8 @@ public:
 
 	inline int getMoveWord() const { return move; }
 
+	inline bool isValid() { return move != 0xF00000u; }
+
 private:
 
 	//			binary move representation									Hex Mask

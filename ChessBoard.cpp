@@ -12,11 +12,9 @@ u64 noWeOne(u64 b) { return (b << 7) & notHFile; }
 
 ChessBoard::ChessBoard()
 	:
-	pawn_attacks(),
-	pawn_moves(),
 	bishop_attacks(),
 	rook_attacks(),
-	mTurn()
+	mTurn(WHITE)
 {
 	
 }
@@ -27,103 +25,25 @@ ChessBoard::~ChessBoard()
 
 void ChessBoard::init()
 {
-
-	std::ifstream file("Rook_Slider_Attacks.bin", std::ios::binary | std::ios::in);
-
-	for (int i = 0; i < 64; i++)
-	{
-		for (int j = 0; j < 4096; j++)
-		{
-			u64 board;
-			file >> board;
-			rook_attacks[i][j] = board;
-
-			int index = 0;
-			int counter = 0;
-			while (board > 0ull)
-			{
-				index = get_ls1b_index(board);
-				board &= ~(1ull << index);
-				rook_attack_positions[i][j][counter] = index;
-				counter++;
-			}
-			rook_num_attack_positions[i][j] = counter;
-		}
-	}
-
-	file.close();
-
-	file.open("Bishop_Slider_attacks.bin", std::ios::binary | std::ios::in);
-	for (int i = 0; i < 64; i++)
-	{
-		for (int j = 0; j < 512; j++)
-		{
-			u64 board;
-			file >> board;
-			bishop_attacks[i][j] = board;
-
-			int counter = 0;
-			while (board > 0ull)
-			{
-				int index = get_ls1b_index(board);
-				board &= ~(1ull << index);
-				bishop_attack_positions[i][j][counter] = index;
-				counter++;
-			}
-			bishop_num_attack_positions[i][j] = counter;
-		}
-	}
-	file.close();
-
-	file.open("Knight.bin", std::ios::binary | std::ios::in);
-
-	for (int i = 0; i < 64; i++)
-	{
-		file >> knight_attacks[i];
-	}
-
-	file.close();
-
-	file.open("Pawn.bin", std::ios::binary | std::ios::in);
-
-	for (int i = 0; i < 2; i++)
-	{
-		for (int j = 0; j < 64; j++)
-		{
-			file >> pawn_attacks[i][j];
-		}
-	}
-
-	for (int i = 0; i < 2; i++)
-	{
-		for (int j = 0; j < 64; j++)
-		{
-			file >> pawn_moves[i][j];
-		}
-	}
-
-	file.close();
-
-	reset();
 }
 
 void ChessBoard::reset()
 {
 	mTurn = WHITE;
 
-	//mBoard.PieceBoards[WHITE][PAWN] = set_bit(a2) | set_bit(b2) | set_bit(c2) | set_bit(d2) | set_bit(e2) | set_bit(f2) | set_bit(g2) | set_bit(h2);
+	mBoard.PieceBoards[WHITE][PAWN] = set_bit(a2) | set_bit(b2) | set_bit(c2) | set_bit(d2) | set_bit(e2) | set_bit(f2) | set_bit(g2) | set_bit(h2);
 	mBoard.PieceBoards[WHITE][ROOK] = set_bit(a1) | set_bit(h1);
-	//mBoard.PieceBoards[WHITE][KNIGHT] = set_bit(b1) | set_bit(g1);
+	mBoard.PieceBoards[WHITE][KNIGHT] = set_bit(b1) | set_bit(g1);
 	mBoard.PieceBoards[WHITE][BISHOP] = set_bit(c1) | set_bit(f1);
 	mBoard.PieceBoards[WHITE][QUEEN] = set_bit(d1);
-	//mBoard.PieceBoards[WHITE][KING] = set_bit(e1);
+	mBoard.PieceBoards[WHITE][KING] = set_bit(e1);
 
-	//mBoard.PieceBoards[BLACK][PAWN] = set_bit(a7) | set_bit(b7) | set_bit(c7) | set_bit(d7) | set_bit(e7) | set_bit(f7) | set_bit(g7) | set_bit(h7);
+	mBoard.PieceBoards[BLACK][PAWN] = set_bit(a7) | set_bit(b7) | set_bit(c7) | set_bit(d7) | set_bit(e7) | set_bit(f7) | set_bit(g7) | set_bit(h7);
 	mBoard.PieceBoards[BLACK][ROOK] = set_bit(a8) | set_bit(h8);
-	//mBoard.PieceBoards[BLACK][KNIGHT] = set_bit(b8) | set_bit(g8);
+	mBoard.PieceBoards[BLACK][KNIGHT] = set_bit(b8) | set_bit(g8);
 	mBoard.PieceBoards[BLACK][BISHOP] = set_bit(c8) | set_bit(f8);
 	mBoard.PieceBoards[BLACK][QUEEN] = set_bit(d8);
-	//mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
+	mBoard.PieceBoards[BLACK][KING] = set_bit(e8);
 		
 	mBoard.Attacks = 0ull;
 	mPromotionSelection = false;
@@ -502,6 +422,7 @@ void ChessBoard::getSuedoLegalMoves(int board, int sq, Color color, u64 mask, st
 	switch (board)
 	{
 	case PAWN:
+		get_pawn_moves(sq, color, mask, moves);
 		break;
 	case ROOK:
 		get_rook_moves(ROOK, sq, color, mask, moves);
@@ -683,6 +604,33 @@ u64 ChessBoard::get_pawn_attacks(int index)
 	return attacks;
 }
 
+void ChessBoard::get_pawn_moves(int sq, Color color, u64 mask, std::vector<Move>& moves)
+{
+	if (color == WHITE)
+	{
+		if (~mBoard.All & (1ull << (sq - 8))) // we can move forward one
+		{
+
+		}
+		if (~mBoard.All & (1ull << (sq - 16)) && (sq > 47 && sq < 55)) // we can move forward two
+		{
+
+		}
+		if (mBoard.General[BLACK] & (1ull << (sq - 9))) // we can attack left
+		{
+
+		}
+		if (mBoard.General[BLACK] & (1ull << (sq - 7))) // we can attack right
+		{
+			
+		}
+	}
+	else
+	{
+
+	}
+}
+
 void ChessBoard::get_rook_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves)
 {
 	mask &= rook_masks[index];
@@ -702,12 +650,14 @@ void ChessBoard::get_rook_moves(int moved, int index, Color color, u64 mask, std
 		m.setMovedPiece(moved);
 		m.setMovedColor(color);
 		int cap = -1;
-		for(int j = 0; j < 6; j++)
-			if (mBoard.PieceBoards[color^1][j] & b)
+		for (int j = 0; j < 6; j++)
+		{
+			if (mBoard.PieceBoards[color ^ 1][j] & b)
 			{
 				cap = j;
 				break;
 			}
+		}
 		m.setCapturedPiece(cap);
 		moves.push_back(m);
 	}

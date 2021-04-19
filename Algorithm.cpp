@@ -192,6 +192,8 @@ std::vector<Move> Algorithm::getAllValidMoves(Color color)
         }
     }
 
+
+
     return arr;
 }
 

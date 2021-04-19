@@ -171,7 +171,7 @@ void ChessRenderer::render(Board board)
     }
     */
 
-    if (mLastMove.getMoveWord())
+    if (mLastMove.isValid())
     {
         draw_tile(mOffset + (glm::vec2(mLastMove.getFromTile() % 8, mLastMove.getFromTile() / 8) * c_scale) + 0.5f * c_scale, c_scale, glm::vec4(0.95, 0.98, 0.015, 0.7));
         draw_tile(mOffset + (glm::vec2(mLastMove.getToTile() % 8, mLastMove.getToTile() / 8) * c_scale) + 0.5f * c_scale, c_scale, glm::vec4(0.95, 0.98, 0.015, 0.7));

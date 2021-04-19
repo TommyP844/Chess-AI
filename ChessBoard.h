@@ -79,6 +79,7 @@ private:
 	u64 get_bishop_attacks(int index, u64 mask);
     u64 get_pawn_attacks(int index);
 
+    void get_pawn_moves(int sq, Color color, u64 mask, std::vector<Move>& moves);
     void get_rook_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves);
     void get_bishop_moves(int moved, int index, Color color, u64 mask, std::vector<Move>& moves);
 
@@ -519,5 +520,8 @@ private:
 
     u64 pawn_attacks[2][64];
     u64 pawn_moves[2][64];
+
+    //int pawn_moves[2][64][4];
+    //int pawn_move_count[2][64]
 };
 
